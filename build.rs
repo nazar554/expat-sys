@@ -17,6 +17,7 @@ fn run_bindgen(include_paths: &[PathBuf], defines: &[&str]) {
         .header("wrapper.h")
         .default_enum_style(bindgen::EnumVariation::NewType { is_bitfield: false })
         .whitelist_type("XML_.*")
+		.size_t_is_usize(true)
         .whitelist_var("XML_.*")
 		.whitelist_function("XML_.*")
         // Tell cargo to invalidate the built crate whenever any of the
