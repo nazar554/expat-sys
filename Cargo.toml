@@ -1,0 +1,48 @@
+[package]
+name = "expat-sys"
+version = "2.2.9"
+authors = ["Expat maintainers"]
+links = "expat"
+build = "build.rs"
+repository = "https://github.com/nazar554/libexpat"
+license = "MIT"
+description = "XML parser library written in C"
+homepage = "http://www.libexpat.org/"
+exclude = [
+    "libexpat/testdata/**",
+    "libexpat/expat/tests/**",
+    "libexpat/expat/doc/**",
+    "libexpat/expat/examples/**",
+    "libexpat/expat/fuzz/**",
+    "libexpat/expat/conftools/**",
+    "libexpat/expat/gennmtab/**",
+    "libexpat/expat/win32/**",
+    "libexpat/expat/xmlwf/**",
+    "libexpat/expat/configure*", 
+    "libexpat/expat/**/Makefile*",
+    "libexpat/expat/**/*.m4",
+    "libexpat/expat/**/*.spec",
+    "libexpat/expat/.clang-format",
+    "libexpat/Brewfile",
+    "libexpat/**/*.sh*",
+    "**/*.yml",
+]
+edition = "2018"
+
+[lib]
+
+[dependencies]
+libc = { version = "0.2.77", optional = true }
+
+[build-dependencies]
+cmake = "0.1"
+pkg-config = "0.3"
+bindgen = "0.55.1"
+
+[features]
+large_size = ["bundled"]
+min_size = ["bundled"]
+bundled = []
+no_std = ["libc"]
+ushort = ["bundled"]
+wchar_t = ["bundled"]
