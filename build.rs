@@ -18,6 +18,7 @@ fn run_bindgen(include_paths: &[PathBuf], defines: &[&str]) {
         .default_enum_style(bindgen::EnumVariation::NewType { is_bitfield: false })
         .whitelist_type("XML_.*")
         .whitelist_var("XML_.*")
+		.whitelist_function("XML_.*")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks));
