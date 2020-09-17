@@ -63,7 +63,6 @@ fn main() {
 
     if cfg!(not(feature = "bundled")) && !target.contains("android") {
         if let Ok(config) = pkg_config::Config::new()
-            .atleast_version(env!("CARGO_PKG_VERSION"))
             .probe("expat")
         {
             let defines: Vec<_> = config.defines.keys().map(|k| k.as_str()).collect();

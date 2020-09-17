@@ -1,7 +1,7 @@
 [package]
 name = "expat-sys"
 version = "2.2.9"
-authors = ["Expat maintainers"]
+authors = ["Nazar Mishturak <nazarmx@gmail.com>", "Expat maintainers"]
 links = "expat"
 build = "build.rs"
 repository = "https://github.com/nazar554/libexpat"
