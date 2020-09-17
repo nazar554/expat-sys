@@ -3,7 +3,6 @@ name = "expat-sys"
 version = "2.2.9"
 authors = ["Nazar Mishturak <nazarmx@gmail.com>", "Expat maintainers"]
 links = "expat"
-build = "build.rs"
 repository = "https://github.com/nazar554/libexpat"
 license = "MIT"
 description = "XML parser library written in C"
@@ -46,3 +45,13 @@ bundled = []
 no_std = ["libc"]
 ushort = ["bundled"]
 wchar_t = ["bundled"]
+dtd = ["bundled"]
+ns = ["bundled"]
+dynamic = ["bundled"]
+static = ["bundled"]
+attr_info = []
+urandom = ["bundled"]
+default-bundled = ["ns", "dtd", "static", "attr_info", "urandom"]
+
+[package.metadata.docs.rs]
+features = ["default-bundled"]

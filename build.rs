@@ -17,12 +17,18 @@ fn run_bindgen(include_paths: &[PathBuf], defines: &[&str]) {
         .header("wrapper.h")
         .default_enum_style(bindgen::EnumVariation::NewType { is_bitfield: false })
         .whitelist_type("XML_.*")
-		.size_t_is_usize(true)
+        .size_t_is_usize(true)
         .whitelist_var("XML_.*")
-		.whitelist_function("XML_.*")
+        .whitelist_function("XML_.*")
+        .blacklist_item("XML_ENABLE_VISIBILITY")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks));
+
+    if cfg!(not(feature = "attr_info")) {
+        config = config.blacklist_type("XML_AttrInfo")
+            .blacklist_function("XML_GetAttributeInfo");
+    }
 
     if cfg!(feature = "no_std") {
         config = config.use_core().ctypes_prefix("::libc");
@@ -49,12 +55,12 @@ fn run_bindgen(include_paths: &[PathBuf], defines: &[&str]) {
         .expect("Couldn't write bindings!");
 }
 
-const XML_LARGE_SIZE: &str = "XML_LARGE_SIZE";
-const XML_MIN_SIZE: &str = "XML_MIN_SIZE";
-
 fn main() {
     if cfg!(feature = "ushort") && cfg!(feature = "wchar_t") {
         panic!("Can't use EXPAT_CHAR_TYPE=ushort and EXPAT_CHAR_TYPE=wchar_t at the same time");
+    }
+    if cfg!(feature = "static") && cfg!(feature = "dynamic") {
+        panic!("Can't use static and dynamic at the same time");
     }
     if cfg!(feature = "wchar_t") {
         env::var("CARGO_CFG_WINDOWS").expect("EXPAT_CHAR_TYPE=wchar_t only works on Windows");
@@ -62,9 +68,7 @@ fn main() {
     let target = env::var("TARGET").unwrap();
 
     if cfg!(not(feature = "bundled")) && !target.contains("android") {
-        if let Ok(config) = pkg_config::Config::new()
-            .probe("expat")
-        {
+        if let Ok(config) = pkg_config::Config::new().probe("expat") {
             let defines: Vec<_> = config.defines.keys().map(|k| k.as_str()).collect();
 
             run_bindgen(&config.include_paths, &defines);
@@ -99,30 +103,113 @@ fn main() {
     };
 
     let mut defines = vec![];
-    if cfg!(feature = "large_size") {
-        defines.push(XML_LARGE_SIZE);
-        cfg = cfg.define("EXPAT_LARGE_SIZE", "ON");
-    }
-    if cfg!(feature = "min_size") {
-        defines.push(XML_MIN_SIZE);
-        cfg = cfg.define("EXPAT_MIN_SIZE", "ON");
-    }
-    if cfg!(feature = "ushort") {
-        defines.push("XML_UNICODE");
-        cfg = cfg.define("EXPAT_CHAR_TYPE", "ushort");
-    }
-    if cfg!(feature = "wchar_t") {
-        defines.push("XML_UNICODE");
-        defines.push("XML_UNICODE_WCHAR_T");
-        cfg = cfg.define("EXPAT_CHAR_TYPE", "wchar_t");
+
+    cfg = cfg.define(
+        "EXPAT_SHARED_LIBS",
+        if cfg!(feature = "dynamic") {
+            "1"
+        } else {
+            defines.push("XML_STATIC");
+            "0"
+        },
+    );
+
+    cfg = cfg.define(
+        "EXPAT_LARGE_SIZE",
+        if cfg!(feature = "large_size") {
+            defines.push("XML_LARGE_SIZE");
+            "1"
+        } else {
+            "0"
+        },
+    );
+
+    cfg = cfg.define(
+        "EXPAT_MIN_SIZE",
+        if cfg!(feature = "min_size") {
+            defines.push("XML_MIN_SIZE");
+            "1"
+        } else {
+            "0"
+        },
+    );
+
+    cfg = cfg.define(
+        "EXPAT_ATTR_INFO",
+        if cfg!(feature = "attr_info") {
+            defines.push("XML_ATTR_INFO");
+            "1"
+        } else {
+            "0"
+        },
+    );
+
+    cfg = cfg.define(
+        "EXPAT_DTD",
+        if cfg!(feature = "dtd") {
+            defines.push("XML_DTD");
+            "1"
+        } else {
+            "0"
+        },
+    );
+
+    cfg = cfg.define(
+        "EXPAT_NS",
+        if cfg!(feature = "ns") {
+            defines.push("XML_NS");
+            "1"
+        } else {
+            "0"
+        },
+    );
+
+    if env::var("CARGO_CFG_UNIX").is_ok() {
+        cfg = cfg.define(
+            "EXPAT_DEV_URANDOM",
+            if cfg!(feature = "urandom") {
+                defines.push("XML_DEV_URANDOM");
+                "1"
+            } else {
+                "0"
+            },
+        );
     }
 
+    cfg = cfg.define(
+        "EXPAT_CHAR_TYPE",
+        if cfg!(feature = "ushort") {
+            defines.push("XML_UNICODE");
+            "ushort"
+        } else if cfg!(feature = "wchar_t") {
+            defines.push("XML_UNICODE");
+            defines.push("XML_UNICODE_WCHAR_T");
+            "wchar_t"
+        } else {
+            "char"
+        },
+    );
+
+    let msvc = target.contains("msvc");
+
+    cfg = cfg.define(
+        "EXPAT_MSVC_STATIC_CRT",
+        if msvc
+            && env::var("CARGO_CFG_TARGET_FEATURE")
+                .unwrap()
+                .contains("crt-static")
+        {
+            "1"
+        } else {
+            "0"
+        },
+    );
+
     let dst = cfg
-        .define("EXPAT_BUILD_TOOLS", "OFF")
-        .define("EXPAT_BUILD_EXAMPLES", "OFF")
-        .define("EXPAT_BUILD_TESTS", "OFF")
-        .define("EXPAT_SHARED_LIBS", "OFF")
-        .define("EXPAT_BUILD_DOCS", "OFF")
+        .define("EXPAT_BUILD_TOOLS", "0")
+        .define("EXPAT_BUILD_EXAMPLES", "0")
+        .define("EXPAT_BUILD_TESTS", "0")
+        .define("EXPAT_BUILD_DOCS", "0")
         .define("CMAKE_DEBUG_POSTFIX", "")
         .define("CMAKE_RELEASE_POSTFIX", "")
         .define("CMAKE_MINSIZEREL_POSTFIX", "")
@@ -139,12 +226,16 @@ fn main() {
     let mut lib = dst.clone();
     lib.push("lib");
 
-    let lib_name = if target.contains("msvc") {
-        "libexpat"
-    } else {
-        "expat"
-    };
+    let lib_name = if msvc { "libexpat" } else { "expat" };
 
     println!("cargo:rustc-link-search=native={}", lib.display());
-    println!("cargo:rustc-link-lib=static={}", lib_name);
+    println!(
+        "cargo:rustc-link-lib={}={}",
+        if cfg!(feature = "dynamic") {
+            "dylib"
+        } else {
+            "static"
+        },
+        lib_name
+    );
 }
